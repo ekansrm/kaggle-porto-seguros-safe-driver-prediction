@@ -6,6 +6,7 @@
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from collections import Iterable
 
 
 def reader_csv(path: str) -> (np.array, np.array):
@@ -19,12 +20,12 @@ def reader_csv(path: str) -> (np.array, np.array):
     return x.values, y.values
 
 
-def generate(sample: np.array, sample_name: str, batch_size: int, name_scope: str = None):
+def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: str = None):
     """ 返回数据的迭代器
   Args:
     :param sample_name:
     :param sample:
-    :param batch_num: batch的数目
+    :param batch_size: batch的数目
     :param name_scope:
   Returns:
       两个迭代器
@@ -42,57 +43,43 @@ def generate(sample: np.array, sample_name: str, batch_size: int, name_scope: st
             message="batch_num == 0, decrease batch_size"
         )
         with tf.control_dependencies([assertion]):
-            batch_size = tf.identity(batch_size, name="batch_size")
+            batch_num = tf.identity(batch_num, name="batch_num")
 
         sample_dim = [d.value for d in sample.shape[1:]]
 
-        # 原数据数目: batch_nums * batch_len,
+        # 数据按批次大小取整, 并reshape
         if len(sample_dim) == 0:
             sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size])
         else:
             sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size, *sample_dim])
 
-        print(sample.shape)
+        batch_idx = tf.train.range_input_producer(batch_num, shuffle=False).dequeue()
 
-        i = tf.train.range_input_producer(batch_num, shuffle=False).dequeue()
+        sample_batch = tf.strided_slice(sample, [batch_idx], [(batch_idx + 1)])[0]
 
-        if len(sample_dim) == 0:
-            sample_bacth = tf.strided_slice(sample, [i * batch_size], [(i+1) * batch_size + 1])
-        else:
-            sample_bacth = tf.strided_slice(sample, [i * batch_size], [(i+1) * batch_size + 1])
-
-        # if len(sample_dim) == 0:
-        #     sample_bacth.set_shape([batch_num, batch_len])
-        # else:
-        #     sample_bacth.set_shape([batch_num, batch_len, *sample_dim])
-
-        return sample_bacth
+        return sample_batch
 
 
 if __name__ == '__main__':
-    from setup import config
-    data_path = config.data.path('train_ps_ind.csv')
-    x, y = reader_csv(data_path)
+    # from setup import config
+    # data_path = config.data.path('train_ps_ind.csv')
+    # x, y = reader_csv(data_path)
 
-    # x = np.asarray(list(range(0, 1024*8)), dtype=np.int32).reshape([1024,8])
-    # y = np.asarray(list(range(0, 1024)), dtype=np.int32)
+    # 测试迭代器
+    x = np.asarray(list(range(0, 1024*8)), dtype=np.int32).reshape([1024, 8])
+    y = np.asarray(list(range(0, 1024)), dtype=np.int32)
 
-    x_batch = generate(sample=x, sample_name="x", batch_size=1, name_scope="123")
-    y_batch = generate(sample=y, sample_name="y", batch_size=1, name_scope="123")
+    x_batch = generate(sample=x, sample_name="x", batch_size=7, name_scope="123")
+    y_batch = generate(sample=y, sample_name="y", batch_size=7, name_scope="123")
 
     with tf.Session() as session:
         coord = tf.train.Coordinator()
         tf.train.start_queue_runners(session, coord=coord)
         try:
-            xval, yval = session.run([x_batch, y_batch])
-            print(xval)
-            print(yval)
-            xval, yval = session.run([x_batch, y_batch])
-            print(xval)
-            print(yval)
-            xval, yval = session.run([x_batch, y_batch])
-            print(xval)
-            print(yval)
+            for i in range(0, 16):
+                xval, yval = session.run([x_batch, y_batch])
+                print(xval)
+                print(yval)
         finally:
             coord.request_stop()
             coord.join()
