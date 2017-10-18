@@ -3,7 +3,9 @@ LSTM 模型
 
 """
 import tensorflow as tf
+import numpy as np
 from enum import Enum
+from src.pipeline.reader import generate
 
 
 class LSTM(object):
@@ -59,53 +61,11 @@ class LSTM(object):
         """添加前缀."""
         return "/".join((prefix, name))
 
-    @staticmethod
-    def ptb_producer(raw_data, batch_size, num_steps, name=None):
-        """Iterate on the raw PTB data.
-
-        This chunks up raw_data into batches of examples and returns Tensors that
-        are drawn from these batches.
-
-        Args:
-          raw_data: one of the raw data outputs from ptb_raw_data.
-          batch_size: int, the batch size.
-          num_steps: int, the number of unrolls.
-          name: the name of this operation (optional).
-
-        Returns:
-          A pair of Tensors, each shaped [batch_size, num_steps]. The second element
-          of the tuple is the same data time-shifted to the right by one.
-
-        Raises:
-          tf.errors.InvalidArgumentError: interface batch_size or num_steps are too high.
-        """
-        with tf.name_scope(name, "DataProducer", [raw_data, batch_size, num_steps]):
-            raw_data = tf.convert_to_tensor(raw_data, name="raw_data", dtype=tf.int32)
-
-            data_len = tf.size(raw_data)
-            batch_len = data_len // batch_size
-            data = tf.reshape(raw_data[0: batch_size * batch_len], [batch_size, batch_len])
-
-            epoch_size = (batch_len - 1) // num_steps
-            assertion = tf.assert_positive(
-                epoch_size,
-                message="epoch_size == 0, decrease batch_size or num_steps")
-            with tf.control_dependencies([assertion]):
-                epoch_size = tf.identity(epoch_size, name="epoch_size")
-
-            i = tf.train.range_input_producer(epoch_size, shuffle=False).dequeue()
-            x = tf.strided_slice(data, [0, i * num_steps], [batch_size, (i + 1) * num_steps])
-            x.set_shape([batch_size, num_steps])
-            y = tf.strided_slice(data, [0, i * num_steps + 1], [batch_size, (i + 1) * num_steps + 1])
-            y.set_shape([batch_size, num_steps])
-            return x, y
-
     def __init__(self):
         """
         """
         self._is_training = False
         self._batch_size = None
-        self._num_steps = None
         self._config = LSTM.Config()
 
         self._name = None
@@ -417,6 +377,18 @@ class LSTM(object):
     def x(self):
         return self._x
 
+    @x.setter
+    def x(self, _x):
+        self._x = _x
+
+    @property
+    def y(self):
+        return self._y
+
+    @y.setter
+    def y(self, _y):
+        self._y = _y
+
     @property
     def lr(self):
         return self._lr
@@ -432,24 +404,32 @@ if __name__ == '__main__':
     config.num_steps = 8
     config.x_dim = 1
     config.y_dim = 1
-    config.lstm_nums_units = config.x_dim
+    config.lstm_nums_units = 8
+    config.is_training = True
 
     lstm = LSTM()
     lstm.config = config
 
-    g1 = tf.Graph()
-    with g1.as_default():
-        lstm_cell = tf.contrib.rnn.BasicLSTMCell(
-            num_units=10,
-            forget_bias=0.0,
-            state_is_tuple=True,    # If True, accepted and returned states are 2-tuples of the c_state and m_state.
-            # If False, they are concatenated along the column axis. The latter behavior
-            # will soon be deprecated.
-            reuse=True
-        )
-        # print([o.name for o in tf.get_default_graph().get_operations()])
+    train_number = 1024*16
+
+    x = np.asarray(list(range(0, train_number*8)), dtype=np.int32).reshape([train_number, 8])
+    y = np.asarray(list(range(0, train_number)), dtype=np.int32)
 
     g2 = tf.Graph()
     with g2.as_default():
+        x_batch = generate(sample=x, sample_name="x", batch_size=7, name_scope="train/input")
+        y_batch = generate(sample=y, sample_name="y", batch_size=7, name_scope="train/input")
+        lstm.x = x_batch
+        lstm.y = y_batch
         lstm.build()
 
+    with tf.Session(graph=g2) as session:
+        coord = tf.train.Coordinator()
+        tf.train.start_queue_runners(session, coord=coord)
+        try:
+            for i in range(0, 16):
+                op_train = session.run([lstm.op_train], feed_dict={lstm.x: x_batch, lstm.y: y_batch})
+                print(op_train)
+        finally:
+            coord.request_stop()
+            coord.join()

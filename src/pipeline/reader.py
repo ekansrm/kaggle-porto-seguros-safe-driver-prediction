@@ -36,7 +36,7 @@ def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: st
         sample = tf.convert_to_tensor(sample, name=sample_name, dtype=tf.int32)
 
         # 获取样本的个数
-        sample_num = tf.size(y)
+        sample_num = tf.size(sample)
         batch_num = sample_num // batch_size
         assertion = tf.assert_positive(
             batch_num,
@@ -51,7 +51,7 @@ def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: st
         if len(sample_dim) == 0:
             sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size])
         else:
-            sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size, *sample_dim])
+            sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size])
 
         batch_idx = tf.train.range_input_producer(batch_num, shuffle=False).dequeue()
 
@@ -78,8 +78,8 @@ if __name__ == '__main__':
         try:
             for i in range(0, 16):
                 xval, yval = session.run([x_batch, y_batch])
-                print(xval)
-                print(yval)
+                print(xval.values)
+                print(yval.values)
         finally:
             coord.request_stop()
             coord.join()
