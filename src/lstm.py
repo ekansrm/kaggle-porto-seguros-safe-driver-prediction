@@ -295,20 +295,22 @@ class LSTM(object):
         tvars = tf.trainable_variables()
         grads, _ = tf.clip_by_global_norm(
             tf.gradients(self._cost, tvars),
-            self._config.dtype.max_grad_norm
+            self._config.max_grad_norm
         )
 
         # 定义训练操作
         self._lr = tf.Variable(0.0, trainable=False)
-        optimizer = tf.train.GradientDescentOptimizer(self._lr)
+        optimizer = tf.train.GradientDescentOptimizer(self._lr, name="optimizer")
 
         self._op_train = optimizer.apply_gradients(
             zip(grads, tvars),
-            global_step=tf.contrib.framework.get_or_create_global_step())
+            global_step=tf.contrib.framework.get_or_create_global_step()
+        )
 
         # 动态更新学习率
         self._new_lr = tf.placeholder(
             tf.float32, shape=[], name="new_learning_rate")
+
         self._op_lr_update = tf.assign(self._lr, self._new_lr)
 
     def assign_lr(self, session, lr_value):
@@ -397,6 +399,10 @@ class LSTM(object):
     def op_train(self):
         return self._op_train
 
+    @property
+    def op_update_lr(self):
+        return self._op_lr_update
+
 
 if __name__ == '__main__':
     config = LSTM.Config()
@@ -406,6 +412,7 @@ if __name__ == '__main__':
     config.y_dim = 1
     config.lstm_nums_units = 8
     config.is_training = True
+    config.max_grad_norm = 13
 
     lstm = LSTM()
     lstm.config = config
@@ -421,6 +428,7 @@ if __name__ == '__main__':
         y_batch = generate(sample=y, sample_name="y", batch_size=7, name_scope="train/input")
         lstm.x = x_batch
         lstm.y = y_batch
+        lstm.is_training = True
         lstm.build()
 
     with tf.Session(graph=g2) as session:
@@ -428,7 +436,7 @@ if __name__ == '__main__':
         tf.train.start_queue_runners(session, coord=coord)
         try:
             for i in range(0, 16):
-                op_train = session.run([lstm.op_train], feed_dict={lstm.x: x_batch, lstm.y: y_batch})
+                op_train = session.run([lstm.op_train], feed_dict={})
                 print(op_train)
         finally:
             coord.request_stop()
