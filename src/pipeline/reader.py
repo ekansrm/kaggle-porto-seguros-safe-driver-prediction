@@ -48,7 +48,6 @@ def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: st
             batch_num = tf.identity(batch_num, name="batch_num")
 
         # 数据按批次大小取整, 并reshape
-        print(sample[0: batch_num * batch_size].shape)
         if len(sample_dim) == 0:
             sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size])
         else:
@@ -67,11 +66,11 @@ if __name__ == '__main__':
     # x, y = reader_csv(data_path)
 
     # 测试迭代器
-    x = np.asarray(list(range(0, 1024*8*5)), dtype=np.int32).reshape([1024, 8, 5])
+    x = np.asarray(list(range(0, 1024*8)), dtype=np.int32).reshape([1024, 8])
     y = np.asarray(list(range(0, 1024)), dtype=np.int32)
 
-    x_batch = generate(sample=x, sample_name="x", batch_size=7, name_scope="123")
-    y_batch = generate(sample=y, sample_name="y", batch_size=7, name_scope="123")
+    x_batch = generate(sample=x, sample_name="x", batch_size=37, name_scope="123")
+    y_batch = generate(sample=y, sample_name="y", batch_size=37, name_scope="123")
 
     with tf.Session() as session:
         coord = tf.train.Coordinator()
