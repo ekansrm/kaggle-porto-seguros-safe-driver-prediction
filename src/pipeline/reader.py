@@ -36,7 +36,9 @@ def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: st
         sample = tf.convert_to_tensor(sample, name=sample_name, dtype=tf.int32)
 
         # 获取样本的个数
-        sample_num = tf.size(sample)
+        # TODO note this: tf.size取的是标量的个数, 不是向量的个数
+        sample_shape = [d.value for d in sample.shape]
+        sample_num, *sample_dim = sample_shape
         batch_num = sample_num // batch_size
         assertion = tf.assert_positive(
             batch_num,
@@ -45,13 +47,12 @@ def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: st
         with tf.control_dependencies([assertion]):
             batch_num = tf.identity(batch_num, name="batch_num")
 
-        sample_dim = [d.value for d in sample.shape[1:]]
-
         # 数据按批次大小取整, 并reshape
+        print(sample[0: batch_num * batch_size].shape)
         if len(sample_dim) == 0:
             sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size])
         else:
-            sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size])
+            sample = tf.reshape(sample[0: batch_num * batch_size], [batch_num, batch_size, *sample_dim])
 
         batch_idx = tf.train.range_input_producer(batch_num, shuffle=False).dequeue()
 
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     # x, y = reader_csv(data_path)
 
     # 测试迭代器
-    x = np.asarray(list(range(0, 1024*8)), dtype=np.int32).reshape([1024, 8])
+    x = np.asarray(list(range(0, 1024*8*5)), dtype=np.int32).reshape([1024, 8, 5])
     y = np.asarray(list(range(0, 1024)), dtype=np.int32)
 
     x_batch = generate(sample=x, sample_name="x", batch_size=7, name_scope="123")
@@ -78,8 +79,8 @@ if __name__ == '__main__':
         try:
             for i in range(0, 16):
                 xval, yval = session.run([x_batch, y_batch])
-                print(xval.values)
-                print(yval.values)
+                print(xval)
+                print(yval)
         finally:
             coord.request_stop()
             coord.join()
