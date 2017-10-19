@@ -5,6 +5,7 @@ LSTM 模型
 import tensorflow as tf
 import numpy as np
 from enum import Enum
+from utils import util
 from src.pipeline.reader import generate
 
 
@@ -174,25 +175,30 @@ class LSTM(object):
             lstm_cells = tf.nn.rnn_cell.MultiRNNCell(
                 [lstm_cell] * self._config.lstm_nums_layer
             )
-        print([o.name for o in tf.get_default_graph().get_operations()])
+        # print([o.name for o in tf.get_default_graph().get_operations()])
 
-        print(lstm_cells.output_size)
-        print(lstm_cells.state_size)
+        # print(lstm_cells.output_size)
+        # print(lstm_cells.state_size)
 
         self._initial_state = lstm_cells.zero_state(self._config.batch_size, self.config.dtype)
         state = self._initial_state
 
         # 讲输入输入 LSTM的cell, 然后获取输出和最后状态
         outputs = []
+        cell_output = None
         with tf.variable_scope("RNN"):
             for time_step in range(self._config.num_steps):
                 if time_step > 0:  # 如果不是第一次, 就把当前变量空间设置为 reuse, 因为是要共享的
                     tf.get_variable_scope().reuse_variables()
                 (cell_output, state) = lstm_cells(self._x[:, time_step, :], state)
+                print("cell_output shape", cell_output.shape)
                 outputs.append(cell_output)
-        output = tf.reshape(tf.concat(values=outputs, axis=1), [-1, self._config.lstm_nums_units])
-
-        return output, state
+        # output = tf.reshape(tf.concat(values=outputs, axis=1), [-1, self._config.lstm_nums_units])
+        # print("input shape", self._x.shape)
+        # output = tf.concat(values=outputs, axis=0)
+        # tf.reshape(output, [-1, self.config.batch_size, self.config.num_steps, self.config.lstm_nums_units])
+        # print("output shape", output.shape)
+        return cell_output, state
 
     def _make_lstm_cell(self, num_units):
         """
@@ -223,7 +229,7 @@ class LSTM(object):
                 cell=cell,
                 output_keep_prob=self._config.keep_prob
             )
-        print([o.name for o in tf.get_default_graph().get_operations()])
+        # print([o.name for o in tf.get_default_graph().get_operations()])
         return cell
 
     def build(self):
@@ -231,17 +237,17 @@ class LSTM(object):
         self.check()
 
         initializer = tf.random_uniform_initializer(-self._config.var_init_scale, self._config.var_init_scale)
-        with tf.variable_scope("Model", reuse=None, initializer=initializer):
-            self._x = tf.placeholder(
-                name='x',
-                dtype=self._config.dtype,
-                shape=[self._config.batch_size, self._config.num_steps, self._config.lstm_nums_units]
-            )
-            self._y = tf.placeholder(
-                name='y',
-                dtype=tf.int32,
-                shape=[self._config.batch_size, self._config.y_dim]
-            )
+        # with tf.variable_scope("Model", reuse=None, initializer=initializer):
+        #     self._x = tf.placeholder(
+        #         name='x',
+        #         dtype=self._config.dtype,
+        #         shape=[self._config.batch_size, self._config.num_steps, self._config.lstm_nums_units]
+        #     )
+        #     self._y = tf.placeholder(
+        #         name='y',
+        #         dtype=tf.int32,
+        #         shape=[self._config.batch_size, self._config.y_dim]
+        #     )
 
         # print([o.name for o in tf.get_default_graph().get_operations()])
 
@@ -249,21 +255,26 @@ class LSTM(object):
         # RNN 输出的张量是 [batch_size, nums_step, lstm_nums_unit]
         f_lstm, state = self._build_rnn_graph()
         # 取最后一步的RNN输出
-        f_lstm = f_lstm[:, -1, :]
+        f_lstm = f_lstm[:, -1]
+        print(f_lstm.shape)
+        f_lstm = tf.reshape(f_lstm, [-1, self.config.batch_size])
+        f_lstm = tf.transpose(f_lstm, [1, 0])
+
+        print(f_lstm.shape)
 
         # 构建全连接层作为输出层
-        softmax_w = tf.get_variable(
-            name="softmax_w",
-            shape=[self._config.lstm_nums_units, self._config.y_dim],
-            dtype=self._config.dtype
-        )
-        softmax_b = tf.get_variable(
-            name="softmax_b",
-            shape=[self._config.y_dim],
-            dtype=self._config.dtype
-        )
-        f_softmax = tf.nn.softmax(tf.nn.xw_plus_b(f_lstm, softmax_w, softmax_b))
-        print(f_softmax.shape)
+        # softmax_w = tf.get_variable(
+        #     name="softmax_w",
+        #     shape=[self._config.lstm_nums_units, self._config.y_dim],
+        #     dtype=self._config.dtype
+        # )
+        # softmax_b = tf.get_variable(
+        #     name="softmax_b",
+        #     shape=[self._config.y_dim],
+        #     dtype=self._config.dtype
+        # )
+        # f_softmax = tf.nn.softmax(tf.nn.xw_plus_b(f_lstm, softmax_w, softmax_b))
+        # print(f_softmax.shape)
         # 使用tensorflow的函数计算序列交叉熵
         # loss = tf.contrib.seq2seq.sequence_loss(
         #     f_softmax,
@@ -280,7 +291,7 @@ class LSTM(object):
             labels=tf.reshape(self._y, [-1]),
             logits=f_lstm
         ))
-        print(cross_entropy_mean)
+        # print(cross_entropy_mean)
 
         self._cost = cross_entropy_mean
 
@@ -316,43 +327,43 @@ class LSTM(object):
     def assign_lr(self, session, lr_value):
         session.run(self._op_lr_update, feed_dict={self._new_lr: lr_value})
 
-    # def export_ops(self, name):
-    #     """Exports ops to collections."""
-    #     self._name = name
-    #     ops = {LSTM.with_prefix(self._name, "cost"): self._cost}
-    #     if self._is_training:
-    #         ops.update(lr=self._lr, new_lr=self._new_lr, lr_update=self._op_lr_update)
-    #         if self._rnn_params:
-    #             ops.update(rnn_params=self._rnn_params)
-    #     for name, op in ops.items():
-    #         tf.add_to_collection(name, op)
-    #     self._initial_state_name = LSTM.with_prefix(self._name, "initial")
-    #     self._final_state_name = LSTM.with_prefix(self._name, "final")
-    #     util.export_state_tuples(self._initial_state, self._initial_state_name)
-    #     util.export_state_tuples(self._final_state, self._final_state_name)
-    #
-    # def import_ops(self):
-    #     """Imports ops from collections."""
-    #     if self._is_training:
-    #         self._op_train = tf.get_collection_ref("train_op")[0]
-    #         self._lr = tf.get_collection_ref("lr")[0]
-    #         self._new_lr = tf.get_collection_ref("new_lr")[0]
-    #         self._op_lr_update = tf.get_collection_ref("lr_update")[0]
-    #         rnn_params = tf.get_collection_ref("rnn_params")
-    #         if self._cell and rnn_params:
-    #             params_saveable = tf.contrib.cudnn_rnn.RNNParamsSaveable(
-    #                 self._cell,
-    #                 self._cell.params_to_canonical,
-    #                 self._cell.canonical_to_params,
-    #                 rnn_params,
-    #                 base_variable_scope="Model/RNN")
-    #             tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, params_saveable)
-    #     self._cost = tf.get_collection_ref(LSTM.with_prefix(self._name, "cost"))[0]
-    #     num_replicas = FLAGS.num_gpus if self._name == "Train" else 1
-    #     self._initial_state = util.import_state_tuples(
-    #         self._initial_state, self._initial_state_name, num_replicas)
-    #     self._final_state = util.import_state_tuples(
-    #         self._final_state, self._final_state_name, num_replicas)
+    def export_ops(self, name):
+        """Exports ops to collections."""
+        self._name = name
+        ops = {LSTM.with_prefix(self._name, "cost"): self._cost}
+        if self._is_training:
+            ops.update(lr=self._lr, new_lr=self._new_lr, lr_update=self._op_lr_update)
+            if self._rnn_params:
+                ops.update(rnn_params=self._rnn_params)
+        for name, op in ops.items():
+            tf.add_to_collection(name, op)
+        self._initial_state_name = LSTM.with_prefix(self._name, "initial")
+        self._final_state_name = LSTM.with_prefix(self._name, "final")
+        util.export_state_tuples(self._initial_state, self._initial_state_name)
+        util.export_state_tuples(self._final_state, self._final_state_name)
+
+    def import_ops(self):
+        """Imports ops from collections."""
+        if self._is_training:
+            self._op_train = tf.get_collection_ref("train_op")[0]
+            self._lr = tf.get_collection_ref("lr")[0]
+            self._new_lr = tf.get_collection_ref("new_lr")[0]
+            self._op_lr_update = tf.get_collection_ref("lr_update")[0]
+            rnn_params = tf.get_collection_ref("rnn_params")
+            if self._cell and rnn_params:
+                params_saveable = tf.contrib.cudnn_rnn.RNNParamsSaveable(
+                    self._cell,
+                    self._cell.params_to_canonical,
+                    self._cell.canonical_to_params,
+                    rnn_params,
+                    base_variable_scope="Model/RNN")
+                tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, params_saveable)
+        self._cost = tf.get_collection_ref(LSTM.with_prefix(self._name, "cost"))[0]
+        num_replicas = 1
+        self._initial_state = util.import_state_tuples(
+            self._initial_state, self._initial_state_name, num_replicas)
+        self._final_state = util.import_state_tuples(
+            self._final_state, self._final_state_name, num_replicas)
 
     ####################################################################################################################
     @property
@@ -403,6 +414,10 @@ class LSTM(object):
     def op_update_lr(self):
         return self._op_lr_update
 
+    @property
+    def cost(self):
+        return self._cost
+
 
 if __name__ == '__main__':
     config = LSTM.Config()
@@ -413,30 +428,48 @@ if __name__ == '__main__':
     config.lstm_nums_units = 8
     config.is_training = True
     config.max_grad_norm = 13
+    config.mode = LSTM.Config.Mode.BLOCK
 
     lstm = LSTM()
     lstm.config = config
 
     train_number = 1024*16
 
-    x = np.asarray(list(range(0, train_number*8)), dtype=np.int32).reshape([train_number, 8])
-    y = np.asarray(list(range(0, train_number)), dtype=np.int32)
+    import random
+    x = np.asarray(list(range(0, train_number*8*8)), dtype=np.float32).reshape([train_number, 8, 8])
+    y = np.asarray([0, 0.9]*train_number, dtype=np.int32)
 
     g2 = tf.Graph()
     with g2.as_default():
-        x_batch = generate(sample=x, sample_name="x", batch_size=7, name_scope="train/input")
-        y_batch = generate(sample=y, sample_name="y", batch_size=7, name_scope="train/input")
+        x_batch = generate(sample=x, sample_name="x", batch_size=20, name_scope="train/input")
+        y_batch = generate(sample=y, sample_name="y", batch_size=20, name_scope="train/input")
+        print(x_batch.shape)
+        print(y_batch.shape)
         lstm.x = x_batch
         lstm.y = y_batch
         lstm.is_training = True
         lstm.build()
+        lstm.export_ops("train")
+        metagraph = tf.train.export_meta_graph()
 
-    with tf.Session(graph=g2) as session:
+        # print(lstm.cost)
+
+    sv = tf.train.Supervisor()
+    config_proto = tf.ConfigProto(allow_soft_placement=True)
+
+    _x = np.asarray(list(range(0, 20*8*8)), dtype=np.float32).reshape([20, 8, 8])
+    _y = np.asarray(list(range(0, 20*1)), dtype=np.float32).reshape([20, 1])
+    g1 = tf.Graph()
+    with tf.Session(graph=g1) as session:
+        tf.train.import_meta_graph(metagraph)
+        lstm.import_ops()
         coord = tf.train.Coordinator()
         tf.train.start_queue_runners(session, coord=coord)
+        init = tf.global_variables_initializer()
+        session.run(init)
         try:
             for i in range(0, 16):
-                op_train = session.run([lstm.op_train], feed_dict={})
+                op_train = session.run([lstm.op_train])
                 print(op_train)
         finally:
             coord.request_stop()

@@ -33,7 +33,7 @@ def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: st
     tf.errors.InvalidArgumentError: if batch_size or num_steps are too high.
   """
     with tf.name_scope(name_scope, "Producer", [sample, batch_size]):
-        sample = tf.convert_to_tensor(sample, name=sample_name, dtype=tf.int32)
+        sample = tf.convert_to_tensor(sample, name=sample_name)
 
         # 获取样本的个数
         # TODO note this: tf.size取的是标量的个数, 不是向量的个数
