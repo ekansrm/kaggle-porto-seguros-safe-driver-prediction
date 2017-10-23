@@ -8,16 +8,30 @@ import numpy as np
 import tensorflow as tf
 from collections import Iterable
 
+col_id_name = 'id'
+col_target_name = 'target'
 
-def reader_csv(path: str) -> (np.array, np.array):
+
+def reader_csv(path: str) -> (np.array, np.array, np.array):
     df = pd.read_csv(path)
     columns = list(df.columns)
-    if 'id' in columns:
-        df.drop(labels=['id'], axis=1, inplace=True)
 
-    y = df['target']
-    x = df.drop(labels=['target'], axis=1)
-    return x.values, y.values
+    if 'id' in columns:
+        ID = df['id']
+        df.drop(labels=['id'], axis=1, inplace=True)
+    else:
+        ID = None
+
+    if 'target' in columns:
+        y = df['target']
+        x = df.drop(labels=['target'], axis=1)
+    else:
+        y = None
+        x = df
+
+    return ID.values if ID is not None else None, \
+           x.values, \
+           y.values if y is not None else None
 
 
 def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: str = None):

@@ -435,7 +435,6 @@ if __name__ == '__main__':
 
     train_number = 1024*16
 
-    import random
     x = np.asarray(list(range(0, train_number*8*8)), dtype=np.float32).reshape([train_number, 8, 8])
     y = np.asarray([0, 0.9]*train_number, dtype=np.int32)
 
@@ -469,8 +468,8 @@ if __name__ == '__main__':
         session.run(init)
         try:
             for i in range(0, 16):
-                op_train = session.run([lstm.op_train])
-                print(op_train)
+                _, cost = session.run([lstm.op_train, lstm.cost])
+                print(cost)
         finally:
             coord.request_stop()
             coord.join()
