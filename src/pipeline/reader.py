@@ -12,9 +12,20 @@ col_id_name = 'id'
 col_target_name = 'target'
 
 
-def reader_csv(path: str) -> (np.array, np.array, np.array):
+def reader_csv(path: str, frac: float=None, n: int=None) -> (np.array, np.array, np.array):
+
     df = pd.read_csv(path)
     columns = list(df.columns)
+
+    if frac is not None and n is not None:
+        df = df.sample(n=n, frac=frac)
+    elif frac is None and n is not None:
+        df = df.sample(n=n)
+    if frac is not None and n is None:
+        df = df.sample(frac=frac)
+    else:
+        pass
+
 
     if 'id' in columns:
         ID = df['id']
