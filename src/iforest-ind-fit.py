@@ -1,14 +1,13 @@
 """
 IsolationForest
 """
-
+import pandas as pd
 import numpy as np
 from sklearn.ensemble import IsolationForest
 
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_fscore_support
-
 
 from setup import config
 from src.pipeline.reader import reader_csv
@@ -24,14 +23,13 @@ data_train_ind_path = config.data.path('train_ind.csv')
 ########################################################################################################################
 # 构造数据
 
-_, x, y = reader_csv(data_train_ind_path, n=20000)
-
+_, x, y = reader_csv(data_train_ind_path, n=2000)
 
 x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.8, test_size=0.2)
 
 # ########################################################################################################################
 model = IsolationForest(
-    n_estimators=20,
+    n_estimators=200,
     n_jobs=-1,
     verbose=0
 )
@@ -41,7 +39,7 @@ print("#"*120)
 print("训练")
 
 rng = np.random.RandomState(31337)
-kf = KFold(n_splits=100, shuffle=True, random_state=rng)
+kf = KFold(n_splits=10, shuffle=True, random_state=rng)
 
 for i, (train_index, test_index) in enumerate(kf.split(x_train, y_train)):
     model.fit(x_train[train_index], y_train[train_index])
