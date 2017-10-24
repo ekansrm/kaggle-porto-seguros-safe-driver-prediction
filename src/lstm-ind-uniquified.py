@@ -91,7 +91,7 @@ for i, (_x, _y) in enumerate(data):
 
     print(model.summary())
 
-    model.fit(_x, _y, epochs=10, batch_size=8, verbose=1)
+    model.fit(_x, _y, epochs=10, batch_size=8, verbose=1, class_weight={0: 1/3, 1: 1-1/3})
 
     model.save(feature_ind_model_lstm_with_embedding_base_path + str(i))
 
