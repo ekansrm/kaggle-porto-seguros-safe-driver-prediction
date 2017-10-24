@@ -12,26 +12,41 @@ col_id_name = 'id'
 col_target_name = 'target'
 
 
-def reader_csv(path: str, frac: float=None, n: int=None) -> (np.array, np.array, np.array):
+def reader_csv(path: str, frac: float = None, n: int = None, stratified_sampling: bool = True) \
+        -> (np.array, np.array, np.array):
+    def _sample(_df: pd.DataFrame) -> pd.DataFrame:
+        if frac is not None and n is not None:
+            return _df.sample(n=n, frac=frac)
+        elif frac is None and n is not None:
+            return _df.sample(n=n)
+        if frac is not None and n is None:
+            return _df.sample(frac=frac)
+        else:
+            return _df
+
+    def _stratified_sampling(_df: pd.DataFrame, label: str) -> pd.DataFrame:
+        if frac is not None and n is not None:
+            return _df.groupby(label).apply(lambda x: x.sample(frac=frac, n=n))
+        elif frac is None and n is not None:
+            return _df.groupby(label).apply(lambda x: x.sample(n=n))
+        if frac is not None and n is None:
+            return _df.groupby(label).apply(lambda x: x.sample(frac=frac))
+        else:
+            return _df
 
     df = pd.read_csv(path)
     columns = list(df.columns)
 
-    if frac is not None and n is not None:
-        df = df.sample(n=n, frac=frac)
-    elif frac is None and n is not None:
-        df = df.sample(n=n)
-    if frac is not None and n is None:
-        df = df.sample(frac=frac)
+    if stratified_sampling and 'target' in columns:
+        df = _stratified_sampling(df, 'target')
     else:
-        pass
-
+        df = _sample(df)
 
     if 'id' in columns:
-        ID = df['id']
+        _id = df['id']
         df.drop(labels=['id'], axis=1, inplace=True)
     else:
-        ID = None
+        _id = None
 
     if 'target' in columns:
         y = df['target']
@@ -40,9 +55,7 @@ def reader_csv(path: str, frac: float=None, n: int=None) -> (np.array, np.array,
         y = None
         x = df
 
-    return ID.values if ID is not None else None, \
-           x.values, \
-           y.values if y is not None else None
+    return _id.values if _id is not None else None, x.values, y.values if y is not None else None
 
 
 def generate(sample: Iterable, sample_name: str, batch_size: int, name_scope: str = None):
@@ -91,7 +104,7 @@ if __name__ == '__main__':
     # x, y = reader_csv(data_path)
 
     # 测试迭代器
-    x = np.asarray(list(range(0, 1024*8)), dtype=np.int32).reshape([1024, 8])
+    x = np.asarray(list(range(0, 1024 * 8)), dtype=np.int32).reshape([1024, 8])
     y = np.asarray(list(range(0, 1024)), dtype=np.int32)
 
     x_batch = generate(sample=x, sample_name="x", batch_size=37, name_scope="123")
