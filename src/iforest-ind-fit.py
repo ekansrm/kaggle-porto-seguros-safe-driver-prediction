@@ -23,7 +23,7 @@ data_train_ind_path = config.data.path('train_ind.csv')
 ########################################################################################################################
 # 构造数据
 
-_, x, y = reader_csv(data_train_ind_path, n=2000)
+_, x, y = reader_csv(data_train_ind_path)
 
 x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.8, test_size=0.2)
 

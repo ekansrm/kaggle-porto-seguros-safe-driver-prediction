@@ -5,6 +5,7 @@ from keras.layers import Dense
 from keras.layers import LSTM
 from keras.layers import Dropout
 from keras.layers.embeddings import Embedding
+from keras.callbacks import EarlyStopping
 from math import floor
 
 np.random.seed(7)
@@ -20,7 +21,7 @@ feature_ind_model_lstm_with_embedding_base_path = config.runtime.path('feature_i
 
 from src.pipeline.reader import reader_csv
 data_path = config.data.path('train_ind_uniquified.csv')
-_, x, y = reader_csv(data_path, frac=0.01)
+_, x, y = reader_csv(data_path)
 
 print(y)
 y_pd = pd.DataFrame({'target': y})
@@ -44,40 +45,39 @@ size_neg = len(y_neg)
 print("反例数目: ", size_neg)
 
 # 正反例数据比
-ratio_pos_neg = 1/3
+ratio_pos_neg = 1
 
 # 计算需要的估计器
-n_estimator = round(ratio_pos_neg * size_neg / size_pos) + 1
+n_estimator = size_neg // size_pos
 print("估计器数目: ", n_estimator)
 config.parameter.put('feature.ind.model.lstm-with-embedding.estimator.numbers', n_estimator)
 
 # 构造模型, 逐个训练
 
-seg_neg_begin = list(range(0, size_neg, int(round(size_neg/n_estimator))))
+seg_neg_begin = list(range(0, size_neg, size_pos))
 seg_neg_end = list(seg_neg_begin)
 if len(seg_neg_begin) != 0:
     seg_neg_end.pop(0)
     seg_neg_end.append(size_neg)
 seg_neg = list(zip(seg_neg_begin, seg_neg_end))
+seg_neg = seg_neg[0: n_estimator]
 
 
 data = []
 for b, e in seg_neg:
-    data.append(
-        (
-            np.concatenate((x_pos, x_neg[b:e]), axis=0),
-            np.concatenate((y_pos, y_neg[b:e]), axis=0)
-        )
-    )
-
-nums_word = feature_ind_embedding_limit - feature_ind_embedding_offset
-embedding_vecor_length = 32
-for i, (_x, _y) in enumerate(data):
+    _x = np.concatenate((x_pos, x_neg[b:e]), axis=0)
+    _y = np.concatenate((y_pos, y_neg[b:e]), axis=0)
     permutation = np.random.permutation(_y.shape[0])
     _x = _x[permutation]
     _y = _y[permutation]
-    print(_x)
-    print(_y)
+    data.append((_x, _y))
+
+nums_word = feature_ind_embedding_limit - feature_ind_embedding_offset
+embedding_vecor_length = 32
+early_stopping = EarlyStopping(monitor='loss', patience=2)
+for i, (_x, _y) in enumerate(data):
+    print(_x.size)
+    print(_y.size)
 
     config.parameter.put('feature.ind.model.lstm-with-embedding.runtime.'+str(i),
                          feature_ind_model_lstm_with_embedding_base_path + str(i))
@@ -87,11 +87,11 @@ for i, (_x, _y) in enumerate(data):
     model.add(LSTM(100))
     model.add(Dropout(0.2))
     model.add(Dense(1, activation='sigmoid'))
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy', 'mae'])
 
     print(model.summary())
 
-    model.fit(_x, _y, epochs=10, batch_size=8, verbose=1, class_weight={0: 1/3, 1: 1-1/3})
+    model.fit(_x, _y, epochs=10, batch_size=64, verbose=1, callbacks=[early_stopping])
 
     model.save(feature_ind_model_lstm_with_embedding_base_path + str(i))
 
