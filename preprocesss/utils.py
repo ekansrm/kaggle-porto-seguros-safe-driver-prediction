@@ -22,6 +22,14 @@ def get_column_name_list_with_missing_value(df: pd.DataFrame, feature: list, pla
     return col_has_missing_value
 
 
+def get_column_type_pair_list(df: pd.DataFrame, prefix: str=None) -> list:
+    dtype_info = df.dtypes
+    column_type_pair_list = list(zip(list(dtype_info.index), [col.name for col in dtype_info]))
+    if prefix is not None:
+        column_type_pair_list = list(filter(lambda x: str(x[0]).startswith(prefix), column_type_pair_list))
+    return column_type_pair_list
+
+
 def fix_feature_ps_ind(df: pd.DataFrame) -> pd.DataFrame:
     # 存在缺失值的都是 category, 直接 one-hot编码
     df_columns = list(df.columns)

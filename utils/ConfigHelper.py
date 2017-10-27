@@ -75,6 +75,8 @@ class Parameter(object):
         return
 
     def get(self, tag: str):
+        if self.tag_abs(tag) not in self.__config['PARAMETER']:
+            return None
         return json.loads(self.__config['PARAMETER'][self.tag_abs(tag)])
 
 
