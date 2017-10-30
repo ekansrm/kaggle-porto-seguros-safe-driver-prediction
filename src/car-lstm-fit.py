@@ -23,8 +23,8 @@ if __name__ == '__main__':
 
     训练数据文件路径 = config.data.path('train_preprocessing_save_1.csv')
 
-    config = config.cast('feature.all')
-    模型文件基地址 = config.runtime.path('feature_all_model_lstm_with_embedding_')
+    config = config.cast('feature.car')
+    模型文件基地址 = config.runtime.path('model_lstm')
     估计器训练数据文件基地址 = config.runtime.path('model.lstm-with-embedding.runtime.data.')
     running_config_tag = 'model.lstm-with-embedding.runtime.running'
     断点标签 = 'model.lstm-with-embedding.runtime.breakpoint'
@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     if not running:
         data_train = pd.read_csv(训练数据文件路径)
-        feature_column_type = preprocess_utils.get_column_type_pair_list(df=data_train, prefix='ps')
+        feature_column_type = preprocess_utils.get_column_type_pair_list(df=data_train, prefix='ps_car')
 
         column_name_list_feature_type_int = [
             x[0]
