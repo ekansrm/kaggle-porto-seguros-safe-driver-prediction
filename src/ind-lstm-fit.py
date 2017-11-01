@@ -17,14 +17,14 @@ reset = True
 
 if __name__ == '__main__':
 
-    feature = 'car'
+    feature = 'ind'
 
     训练数据文件路径 = config.data.path('data_indexing_clip.csv')
     embedding_index_offset = config.parameter.get('embedding.index.offset')
     embedding_index_length = config.parameter.get('embedding.index.length')
 
-    config = config.cast('feature.'+feature)
-    模型文件基地址 = config.runtime.path('model_lstm')
+    config = config.cast('feature.ind')
+    模型文件基地址 = config.runtime.path('lstm')
     估计器训练数据文件基地址 = config.runtime.path('model.lstm-with-embedding.runtime.data.')
     running_config_tag = 'model.lstm-with-embedding.runtime.running'
     断点标签 = 'model.lstm-with-embedding.runtime.breakpoint'
@@ -49,9 +49,7 @@ if __name__ == '__main__':
     if not running:
         data = pd.read_csv(训练数据文件路径)
         data_train = data[data['set'] == 'train']
-
-        feature_column_type = preprocess_utils.get_column_type_pair_list(df=data_train, prefix='ps_'+feature)
-
+        feature_column_type = preprocess_utils.get_column_type_pair_list(df=data_train, prefix='ps_' + feature)
         column_name_list_feature_type_int = [
             x[0]
             for x in filter(
@@ -121,13 +119,8 @@ if __name__ == '__main__':
             _x_float = _x_float[permutation]
             _y = _y[permutation]
             _id = _id[permutation]
-            print(list(_x_int[0]))
-            print(list(_x_float[0]))
-            print(_y[0])
-            print(_id[0])
             with open(估计器训练数据文件基地址 + str(i), 'wb') as fp:
                 pickle.dump((_x_int, _x_float, _y), fp, 1)
-
 
     else:
         # 从文件恢复数据
@@ -141,24 +134,24 @@ if __name__ == '__main__':
         print('断点继续, step={0}'.format(上次运行断点))
 
     embedded_lstm_config = EmbeddedLSTM.Config()
-    embedded_lstm_config.x_int_dim = len(column_name_list_feature_type_int)
-    embedded_lstm_config.x_float_dim = len(column_name_list_feature_type_float)
-    embedded_lstm_config.dropout = 0.1
+    embedded_lstm_config = EmbeddedLSTM.Config()
+    embedded_lstm_config.x_int_columns = column_name_list_feature_type_int
+    embedded_lstm_config.x_float_columns = column_name_list_feature_type_float
     embedded_lstm_config.embedding_word_number = embedding_word_number
     embedded_lstm_config.embeding_vector_length = embeding_vector_length
+    embedded_lstm_config.dropout = 0.1
     embedded_lstm_config.lstm_units = 100
     embedded_lstm_config.dense = [16]
 
     sgd = SGD(lr=0.0, momentum=0.9, decay=0.0, nesterov=False)
-
     def step_decay(epoch):
         initial_lrate = 0.1
         drop = 0.5
         epochs_drop = 10.0
         lrate = initial_lrate * math.pow(drop, math.floor((1 + epoch) / epochs_drop))
         return lrate
-    lrate = LearningRateScheduler(step_decay)
 
+    lrate = LearningRateScheduler(step_decay)
     early_stopping = EarlyStopping(monitor='val_loss', patience=2)
 
     config.parameter.put(running_config_tag, True)
@@ -183,15 +176,15 @@ if __name__ == '__main__':
 
         lstm.model.compile(
             optimizer='adam',
-            loss={'y': 'binary_crossentropy', 'y_aux': 'binary_crossentropy'},
-            loss_weights={'y': 1., 'y_aux': 0.2},
+            loss={'y_aux': 'binary_crossentropy'},
+            loss_weights={'y_aux': 1},
             metrics=['accuracy', 'mae']
         )
 
         lstm.model.fit(
-            x={'x_int': _x, 'x_float': _x_float},
-            y={'y': _y, 'y_aux': _y},
-            epochs=10, batch_size=1, shuffle=True, verbose=1, callbacks=[early_stopping]
+            x={'x_int': _x},
+            y={'y_aux': _y},
+            epochs=100, batch_size=32, shuffle=True, verbose=1, callbacks=[early_stopping]
         )
 
         lstm.model.save(模型文件基地址 + str(当前步骤))
