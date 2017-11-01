@@ -3,7 +3,6 @@ from keras.layers import Input
 from keras.layers import Dense
 from keras.layers import LSTM
 from keras.layers import Dropout
-from keras.layers import Reshape
 from keras.layers import concatenate
 from keras.layers.embeddings import Embedding
 
@@ -17,7 +16,7 @@ class EmbeddedLSTM(object):
             self.x_int_columns = None
             self.x_float_columns = None
             self.dropout = 0.2
-            self.layer_dense = [64, 64]
+            self.layer_dense = [16]
 
     def __init__(self):
         self._config = EmbeddedLSTM.Config()
@@ -48,18 +47,20 @@ class EmbeddedLSTM(object):
 
         # 浮点特征
         x_float = Input(shape=(len(config.x_float_columns),), name='x_float')
-        x = concatenate([x_int_lstm_embedded_out, x_float])
+        x = concatenate([y_aux, x_float])
 
-        x_lstm_out = LSTM(64, name='lstm')(Reshape((-1, 32+len(config.x_float_columns)))(x))
-        if config.dropout > 0:
-            x_lstm_out = Dropout(config.dropout)(x_lstm_out)
+        # x_lstm_out = LSTM(64, name='lstm')(Reshape((-1, 32+len(config.x_float_columns)))(x))
+        # if config.dropout > 0:
+        #     x_lstm_out = Dropout(config.dropout)(x_lstm_out)
 
-        x_dense_out = x_lstm_out
+        x_dense = x
         for i, dim in enumerate(config.layer_dense):
-            x_dense_out = Dense(64, activation='sigmoid', name='dense_'+str(i))(x_dense_out)
+            x_dense = Dense(64, activation='sigmoid', name='dense_'+str(i))(x_dense)
+            if config.dropout > 0:
+                x_dense = Dropout(config.dropout)(x_dense)
 
         # 输出
-        y = Dense(1, activation='sigmoid', name='y')(x_dense_out)
+        y = Dense(1, activation='sigmoid', name='y')(x_dense)
 
         self._model = Model(inputs=[x_int, x_float], outputs=[y, y_aux])
 
