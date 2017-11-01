@@ -121,10 +121,6 @@ if __name__ == '__main__':
             _x_float = _x_float[permutation]
             _y = _y[permutation]
             _id = _id[permutation]
-            print(list(_x_int[0]))
-            print(list(_x_float[0]))
-            print(_y[0])
-            print(_id[0])
             with open(估计器训练数据文件基地址 + str(i), 'wb') as fp:
                 pickle.dump((_x_int, _x_float, _y), fp, 1)
 
