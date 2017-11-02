@@ -32,7 +32,12 @@ if __name__ == '__main__':
     model_name = 'model.lstm-weighted'
     model_path = config.runtime.path(model_name)
     model_path_tag = model_name + '.save'
-    model_checkpoint_path = config.runtime.path(model_name+'.checkpoint')
+    model_checkpoint_path = config.runtime.path(
+        model_name+'.checkpoint'
+                   '.epoch-{epoch:02d}'
+                   '.val_loss-{val_loss:.6f}'
+                   '.val_y_acc-{val_y_acc:.6f}'
+                   '.val_y_aux_acc-{val_y_aux_acc:.6f}')
     model_checkpoint_tag = model_name + '.checkpoint.save'
 
     model_runtime_data_path = config.runtime.path(model_name + '.data')
@@ -145,10 +150,11 @@ if __name__ == '__main__':
         1: 1 - rate_pos,
         0: rate_pos
     }
+    print("样本权重: ", class_weight)
 
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, mode='min', patience=3, verbose=1)
 
-    checkpoint = ModelCheckpoint(model_checkpoint_path, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+    checkpoint = ModelCheckpoint(model_checkpoint_path, monitor='val_y_acc', save_best_only=False, mode='max', verbose=1)
 
     ####################################################################################################################
     # Run !
