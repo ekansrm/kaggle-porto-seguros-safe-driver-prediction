@@ -175,7 +175,7 @@ if __name__ == '__main__':
 
     early_stopping = EarlyStopping(monitor='val_loss', patience=2)
 
-    batch_size = [128, 64, 32, 8, 1]
+    batch_size = [512, 512, 128]
 
     config.parameter.put(running_config_tag, True)
     for 当前步骤 in range(0, 估计器数量):
@@ -204,12 +204,12 @@ if __name__ == '__main__':
             metrics=['accuracy']
         )
 
-        for i in batch_size:
+        for i, b in enumerate(batch_size):
             print("Epochs {0}/{1}".format(i, len(batch_size)))
             lstm.model.fit(
                 x={'x_int': _x, 'x_float': _x_float},
                 y={'y': _y, 'y_aux': _y},
-                epochs=1, batch_size=i, shuffle=True, verbose=1, callbacks=[early_stopping]
+                epochs=1, batch_size=b, shuffle=True, validation_split=0.3, verbose=1, callbacks=[early_stopping]
             )
 
         lstm.model.save(模型文件基地址 + str(当前步骤))
