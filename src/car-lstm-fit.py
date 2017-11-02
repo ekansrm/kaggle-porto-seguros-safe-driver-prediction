@@ -12,14 +12,15 @@ from src.model.lstm import EmbeddedLSTM
 
 np.random.seed(7)
 
-reset = True
+reset = False
 正反例数据比 = 1
 
 if __name__ == '__main__':
 
     feature = 'car'
 
-    训练数据文件路径 = config.data.path('data_indexing_clip.csv')
+    训练数据文件clip路径 = config.data.path('data_indexed_train_clip.csv')
+    训练数据文件路径 = config.data.path('data_indexed_train.csv')
     embedding_index_offset = config.parameter.get('embedding.index.offset')
     embedding_index_length = config.parameter.get('embedding.index.length')
 
@@ -30,7 +31,6 @@ if __name__ == '__main__':
     断点标签 = 'model.lstm-with-embedding.runtime.breakpoint'
 
     embedding_word_number = embedding_index_length - embedding_index_offset
-    embeding_vector_length = 64
 
     if reset:
         running = False
@@ -47,10 +47,9 @@ if __name__ == '__main__':
         上次运行断点 = -1
 
     if not running:
-        data = pd.read_csv(训练数据文件路径)
-        data_train = data[data['set'] == 'train']
+        data_clip = pd.read_csv(训练数据文件clip路径, low_memory=True)
 
-        feature_column_type = preprocess_utils.get_column_type_pair_list(df=data_train, prefix='ps_'+feature)
+        feature_column_type = preprocess_utils.get_column_type_pair_list(df=data_clip, prefix='ps_'+feature)
 
         column_name_list_feature_type_int = [
             x[0]
@@ -69,6 +68,25 @@ if __name__ == '__main__':
             )
         ]
         column_name_list_feature_type_float = sorted(column_name_list_feature_type_float, reverse=True)
+
+        dtype_dict = {
+            'id': 'uint32',
+            'target': 'float32',
+            'set': 'str'
+        }
+        dtype_dict.update(
+            {
+                k: 'float32' for k in column_name_list_feature_type_float
+            }
+        )
+        dtype_dict.update(
+            {
+                k: 'uint8' for k in column_name_list_feature_type_int
+            }
+        )
+
+        data = pd.read_csv(训练数据文件路径, dtype=dtype_dict, low_memory=True)
+        data_train = data[data['set'] == 'train']
 
         config.parameter.put("model.lstm-with-embedding.columns.int", column_name_list_feature_type_int)
         config.parameter.put("model.lstm-with-embedding.columns.float", column_name_list_feature_type_float)
@@ -141,9 +159,9 @@ if __name__ == '__main__':
     embedded_lstm_config.x_float_dim = len(column_name_list_feature_type_float)
     embedded_lstm_config.dropout = 0.1
     embedded_lstm_config.embedding_word_number = embedding_word_number
-    embedded_lstm_config.embeding_vector_length = embeding_vector_length
-    embedded_lstm_config.lstm_units = 100
-    embedded_lstm_config.dense = [16]
+    embedded_lstm_config.embeding_vector_length = 80
+    embedded_lstm_config.lstm_units = 200
+    embedded_lstm_config.dense = [200, 100]
 
     sgd = SGD(lr=0.0, momentum=0.9, decay=0.0, nesterov=False)
 
@@ -156,6 +174,8 @@ if __name__ == '__main__':
     lrate = LearningRateScheduler(step_decay)
 
     early_stopping = EarlyStopping(monitor='val_loss', patience=2)
+
+    batch_size = [128, 64, 32, 8, 1]
 
     config.parameter.put(running_config_tag, True)
     for 当前步骤 in range(0, 估计器数量):
@@ -180,15 +200,17 @@ if __name__ == '__main__':
         lstm.model.compile(
             optimizer='adam',
             loss={'y': 'binary_crossentropy', 'y_aux': 'binary_crossentropy'},
-            loss_weights={'y': 1., 'y_aux': 0.2},
-            metrics=['accuracy', 'mae']
+            loss_weights={'y': 1., 'y_aux': 0.7},
+            metrics=['accuracy']
         )
 
-        lstm.model.fit(
-            x={'x_int': _x, 'x_float': _x_float},
-            y={'y': _y, 'y_aux': _y},
-            epochs=10, batch_size=1, shuffle=True, verbose=1, callbacks=[early_stopping]
-        )
+        for i in batch_size:
+            print("Epochs {0}/{1}".format(i, len(batch_size)))
+            lstm.model.fit(
+                x={'x_int': _x, 'x_float': _x_float},
+                y={'y': _y, 'y_aux': _y},
+                epochs=1, batch_size=i, shuffle=True, verbose=1, callbacks=[early_stopping]
+            )
 
         lstm.model.save(模型文件基地址 + str(当前步骤))
 

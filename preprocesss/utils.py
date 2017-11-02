@@ -41,6 +41,20 @@ def fix_feature_ps_ind(df: pd.DataFrame) -> pd.DataFrame:
     return _df
 
 
+def show_feature_with_missing_value(df: pd.DataFrame, prefix: str, placeholder: int = -1):
+    sample_number = len(df)
+    column_name_list_with_missing_value = get_column_name_list_with_missing_value(
+        df=df,
+        feature=get_column_name_list_by_prefix(df=df, prefix=prefix),
+        placeholder=placeholder,
+    )
+    column_name_list_with_missing_value = sorted(column_name_list_with_missing_value, reverse=False)
+
+    for col in column_name_list_with_missing_value:
+        missing_row_num = len(list(filter(lambda x: x, df[col] == placeholder)))
+        print("col: {0}, dtype: {1}, missing rate: {2}".format(col, df[col].dtype, missing_row_num / sample_number))
+
+
 # 给每个列加上一个基数
 def indexing(df: pd.DataFrame, columns: list, offset: int = 0, neat: bool = True) -> (pd.DataFrame, int):
     df = df.copy()
