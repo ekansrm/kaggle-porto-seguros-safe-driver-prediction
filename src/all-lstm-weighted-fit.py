@@ -27,17 +27,17 @@ if __name__ == '__main__':
     ####################################################################################################################
     # 设置
     feature = 'all'
-    config = config.cast('feature.'+feature)
+    config = config.cast('feature.' + feature)
 
     model_name = 'model.lstm-weighted'
     model_path = config.runtime.path(model_name)
     model_path_tag = model_name + '.save'
     model_checkpoint_path = config.runtime.path(
-        model_name+'.checkpoint'
-                   '.epoch-{epoch:02d}'
-                   '.val_loss-{val_loss:.6f}'
-                   '.val_y_acc-{val_y_acc:.6f}'
-                   '.val_y_aux_acc-{val_y_aux_acc:.6f}')
+        model_name + '.checkpoint'
+                     '.epoch-{epoch:02d}'
+                     '.val_loss-{val_loss:.6f}'
+                     '.val_y_acc-{val_y_acc:.6f}'
+                     '.val_y_aux_acc-{val_y_aux_acc:.6f}')
     model_checkpoint_tag = model_name + '.checkpoint.save'
 
     model_runtime_data_path = config.runtime.path(model_name + '.data')
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     feature_ps_reg = sorted([x for x in column_name_list_feature_type_int if 'ps_reg' in x])
     feature_ps_car = sorted([x for x in column_name_list_feature_type_int if 'ps_car' in x])
     assert len(column_name_list_feature_type_int) == \
-           len(feature_ps_ind + feature_ps_calc + feature_ps_reg + feature_ps_car)
+        len(feature_ps_ind + feature_ps_calc + feature_ps_reg + feature_ps_car)
 
     column_name_list_feature_type_int = feature_ps_ind + feature_ps_calc + feature_ps_reg + feature_ps_car
 
@@ -144,6 +144,7 @@ if __name__ == '__main__':
 
     sgd = SGD(lr=0.0, momentum=0.9, decay=0.0, nesterov=False)
 
+
     def step_decay(epoch):
         initial_lrate = 0.1
         drop = 0.5
@@ -151,9 +152,10 @@ if __name__ == '__main__':
         lrate = initial_lrate * math.pow(drop, math.floor((1 + epoch) / epochs_drop))
         return lrate
 
+
     lr_rate = LearningRateScheduler(step_decay)
 
-    rate_pos = size_pos/(size_pos+size_neg)
+    rate_pos = size_pos / (size_pos + size_neg)
     class_weight = {
         1: 1 - rate_pos,
         0: rate_pos
@@ -162,7 +164,8 @@ if __name__ == '__main__':
 
     early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, mode='min', patience=3, verbose=1)
 
-    checkpoint = ModelCheckpoint(model_checkpoint_path, monitor='val_y_acc', save_best_only=False, mode='max', verbose=1)
+    checkpoint = ModelCheckpoint(model_checkpoint_path, monitor='val_y_acc', save_best_only=False, mode='max',
+                                 verbose=1)
 
     ####################################################################################################################
     # Run !
