@@ -38,23 +38,24 @@ class EmbeddedLSTM(object):
         )(x_int)
 
         if config.dropout > 0:
-            x_int_vec = K.in_train_phase(Dropout(config.dropout)(x_int_vec), x_int_vec)
+            x_int_vec = Dropout(config.dropout)(x_int_vec)
 
         x_int_lstm_embedded_out = LSTM(units=config.lstm_units, name='lstm-embedded')(x_int_vec)
 
         if config.dropout > 0:
             x_int_lstm_embedded_out = \
-                K.in_train_phase(Dropout(config.dropout)(x_int_lstm_embedded_out), x_int_lstm_embedded_out)
+                Dropout(config.dropout)(x_int_lstm_embedded_out)
 
         y_aux = Dense(1, activation='sigmoid', name='y_aux')(x_int_lstm_embedded_out)
+        x_aux = Dense(config.x_float_dim, activation='tanh', name='x_aux')(x_int_lstm_embedded_out)
 
         # 浮点特征
-        if config.x_float_dim < 1:
+        if config.x_float_dim is None or config.x_float_dim < 1:
             self._model = Model(inputs=[x_int], outputs=[y_aux])
             return
 
         x_float = Input(shape=(config.x_float_dim,), name='x_float')
-        x = concatenate([y_aux, x_float])
+        x = concatenate([x_aux, x_float])
 
         # x_lstm_out = LSTM(64, name='lstm')(Reshape((-1, 32+len(config.x_float_columns)))(x))
         # if config.dropout > 0:
@@ -62,9 +63,9 @@ class EmbeddedLSTM(object):
 
         x_dense = x
         for i, dim in enumerate(config.dense):
-            x_dense = Dense(dim, activation='sigmoid', name='dense_'+str(i))(x_dense)
+            x_dense = Dense(dim, activation='tanh', name='dense_'+str(i))(x_dense)
             if config.dropout > 0:
-                x_dense = K.in_train_phase(Dropout(config.dropout)(x_dense), x_dense)
+                x_dense = Dropout(config.dropout)(x_dense)
 
         # 输出
         y = Dense(1, activation='sigmoid', name='y')(x_dense)
@@ -86,8 +87,8 @@ class EmbeddedLSTM(object):
 
 if __name__ == '__main__':
     config = EmbeddedLSTM.Config()
-    config.x_int_columns = ['0', '1', '2', '3', '4', '5']
-    config.x_float_columns = ['6', '7', '8']
+    config.x_int_dim = 6
+    config.x_float_dim = 3
     config.embedding_word_number = 600
     config.embeding_vector_length = 32
 

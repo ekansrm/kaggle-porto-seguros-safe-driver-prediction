@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     feature = 'ind'
 
-    训练数据文件路径 = config.data.path('data_indexing_clip.csv')
+    训练数据文件路径 = config.data.path('data_indexed_train_clip.csv')
     embedding_index_offset = config.parameter.get('embedding.index.offset')
     embedding_index_length = config.parameter.get('embedding.index.length')
 
@@ -135,8 +135,8 @@ if __name__ == '__main__':
 
     embedded_lstm_config = EmbeddedLSTM.Config()
     embedded_lstm_config = EmbeddedLSTM.Config()
-    embedded_lstm_config.x_int_columns = column_name_list_feature_type_int
-    embedded_lstm_config.x_float_columns = column_name_list_feature_type_float
+    embedded_lstm_config.x_int_dim = len(column_name_list_feature_type_int)
+    embedded_lstm_config.x_float_dim = len(column_name_list_feature_type_float)
     embedded_lstm_config.embedding_word_number = embedding_word_number
     embedded_lstm_config.embeding_vector_length = embeding_vector_length
     embedded_lstm_config.dropout = 0.1
@@ -184,7 +184,7 @@ if __name__ == '__main__':
         lstm.model.fit(
             x={'x_int': _x},
             y={'y_aux': _y},
-            epochs=100, batch_size=32, shuffle=True, verbose=1, callbacks=[early_stopping]
+            epochs=4, batch_size=4, shuffle=True, verbose=1, callbacks=[early_stopping]
         )
 
         lstm.model.save(模型文件基地址 + str(当前步骤))
