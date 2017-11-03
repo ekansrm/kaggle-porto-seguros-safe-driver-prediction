@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     ####################################################################################################################
     # 数据全局变量
-    data_clip_path = config.data.path('data_indexed_train_clip.csv')
+    data_clip_path = config.data.path('data_indexed_train.csv')
     data_path = config.data.path('data_indexed_train_clip.csv')
     embedding_index_offset = config.parameter.get('embedding.index.offset')
     embedding_index_length = config.parameter.get('embedding.index.length')
@@ -194,7 +194,7 @@ if __name__ == '__main__':
         x={'x_int': x_int, 'x_float': x_float},
         y={'y': y, 'y_aux': y},
         class_weight=class_weight,
-        epochs=20, batch_size=64, shuffle=True, validation_split=0.2,
+        epochs=50, batch_size=64, shuffle=True, validation_split=0.2,
         callbacks=[early_stopping, checkpoint],
         verbose=1,
     )
