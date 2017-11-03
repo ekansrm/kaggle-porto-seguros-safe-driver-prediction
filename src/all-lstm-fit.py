@@ -79,6 +79,9 @@ if __name__ == '__main__':
         feature_ps_calc = sorted([x for x in column_name_list_feature_type_int if 'ps_calc' in x])
         feature_ps_reg = sorted([x for x in column_name_list_feature_type_int if 'ps_reg' in x])
         feature_ps_car = sorted([x for x in column_name_list_feature_type_int if 'ps_car' in x])
+        assert len(column_name_list_feature_type_int) == \
+            len(feature_ps_ind + feature_ps_calc + feature_ps_reg + feature_ps_car)
+        column_name_list_feature_type_int = feature_ps_ind + feature_ps_calc + feature_ps_reg + feature_ps_car
 
         column_name_list_feature_type_float = [
             x[0]
