@@ -13,7 +13,7 @@ from src.model.lstm import EmbeddedLSTM
 
 np.random.seed(7)
 
-reset = True
+reset = False
 
 if __name__ == '__main__':
 
@@ -193,7 +193,7 @@ if __name__ == '__main__':
         return lrate
     lrate = LearningRateScheduler(step_decay)
 
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, mode='min', patience=3, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, mode='min', patience=2, verbose=1)
 
     ####################################################################################################################
     # Run !
