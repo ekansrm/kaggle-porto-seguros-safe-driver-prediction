@@ -19,8 +19,8 @@ if __name__ == '__main__':
 
     ####################################################################################################################
     # 数据全局变量
-    data_clip_path = config.data.path('data_indexed_train.csv')
-    data_path = config.data.path('data_indexed_train_clip.csv')
+    data_clip_path = config.data.path('data_indexed_train_clip.csv')
+    data_path = config.data.path('data_indexed_train.csv')
     embedding_index_offset = config.parameter.get('embedding.index.offset')
     embedding_index_length = config.parameter.get('embedding.index.length')
     embedding_word_number = embedding_index_length - embedding_index_offset
