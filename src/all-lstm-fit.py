@@ -13,7 +13,7 @@ from src.model.lstm import EmbeddedLSTM
 
 np.random.seed(7)
 
-reset = False
+reset = True
 
 if __name__ == '__main__':
 
@@ -183,7 +183,7 @@ if __name__ == '__main__':
     embedded_lstm_config.dropout = 0.1
     embedded_lstm_config.embedding_word_number = embedding_word_number
     embedded_lstm_config.embeding_vector_length = 80
-    embedded_lstm_config.lstm_units = 400
+    embedded_lstm_config.lstm_units = 800
     embedded_lstm_config.dense = [400, 400, 200]
 
     sgd = SGD(lr=0.0, momentum=0.9, decay=0.0, nesterov=False)
