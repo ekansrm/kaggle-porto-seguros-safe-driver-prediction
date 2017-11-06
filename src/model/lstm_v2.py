@@ -3,9 +3,9 @@ from keras.layers import Input
 from keras.layers import Dense
 from keras.layers import LSTM
 from keras.layers import Dropout
+from keras.layers import Reshape
 from keras.layers import concatenate
 from keras.layers.embeddings import Embedding
-from keras import backend as K
 
 
 class EmbeddedLSTM(object):
@@ -42,48 +42,43 @@ class EmbeddedLSTM(object):
 
         # 浮点类型, 经过一个 dense 层
         x_float_vec = []
-        for i, dim in enumerate(config.x_float_dim):
-            _x = Dense(config.embeding_vector_length, activation='tanh', name='dense_'+str(i))(x_float[:, i])
+        for i in range(config.x_float_dim):
+            _x = Dense(config.embeding_vector_length,
+                       activation='tanh',
+                       name='dense_'+str(i) + '_0')(Reshape(target_shape=[1])(x_float[:, i]))
             if config.dropout > 0:
                 _x = Dropout(config.dropout)(_x)
-
-            _x = Dense(config.embeding_vector_length, activation='tanh', name='dense_'+str(i))(_x)
-            if config.dropout > 0:
-                _x = Dropout(config.dropout)(_x)
+            _x = Dense(config.embeding_vector_length,
+                       activation='tanh',
+                       name='dense_'+str(i) + '_1')(_x)
             x_float_vec.append(_x)
 
         x_float_vec = concatenate(x_float_vec, axis=1)
+        x_float_vec = Reshape([config.x_float_dim, config.embeding_vector_length])(x_float_vec)
 
-        x_vec = concatenate([x_int_vec, x_float_vec], axis=0)
+        x_vec = concatenate([x_int_vec, x_float_vec], axis=1)
 
-        if config.dropout > 0:
-            x_int_vec = Dropout(config.dropout)(x_int_vec)
-
-        x_int_lstm_embedded_out = LSTM(units=config.lstm_units, name='lstm-embedded')(x_int_vec)
+        print(x_vec.shape)
 
         if config.dropout > 0:
-            x_int_lstm_embedded_out = \
-                Dropout(config.dropout)(x_int_lstm_embedded_out)
+            x_vec = Dropout(config.dropout)(x_vec)
 
-        y_aux = Dense(1, activation='sigmoid', name='y_aux')(x_int_lstm_embedded_out)
-        x_aux = Dense(config.x_float_dim, activation='tanh', name='x_aux')(x_int_lstm_embedded_out)
+        x_lstm_embedded_out = LSTM(units=config.lstm_units, name='lstm-embedded')(x_float_vec)
 
-        # 浮点特征
-        if config.x_float_dim is None or config.x_float_dim < 1:
-            self._model = Model(inputs=[x_int], outputs=[y_aux])
-            return
+        print(x_lstm_embedded_out.shape)
 
-        x = concatenate([x_aux, x_float])
+        if config.dropout > 0:
+            x_lstm_embedded_out = \
+                Dropout(config.dropout)(x_lstm_embedded_out)
+
+        # 输出
+        y = Dense(1, activation='sigmoid', name='y')(x_lstm_embedded_out)
 
         # x_lstm_out = LSTM(64, name='lstm')(Reshape((-1, 32+len(config.x_float_columns)))(x))
         # if config.dropout > 0:
         #     x_lstm_out = Dropout(config.dropout)(x_lstm_out)
 
-
-        # 输出
-        y = Dense(1, activation='sigmoid', name='y')(x_dense)
-
-        self._model = Model(inputs=[x_int, x_float], outputs=[y, y_aux])
+        self._model = Model(inputs=[x_int, x_float], outputs=[y])
 
     @property
     def model(self) -> Model:
