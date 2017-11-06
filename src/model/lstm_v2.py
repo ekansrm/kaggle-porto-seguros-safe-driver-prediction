@@ -6,6 +6,7 @@ from keras.layers import Dropout
 from keras.layers import Reshape
 from keras.layers import concatenate
 from keras.layers.embeddings import Embedding
+from keras.backend import squeeze
 
 
 class EmbeddedLSTM(object):
@@ -33,6 +34,7 @@ class EmbeddedLSTM(object):
         x_int = Input(shape=(config.x_int_dim,), dtype='int32', name='x_int')
         x_int_vec = Embedding(
             name='embedding',
+            embeddings_initializer='lecun_uniform',
             input_dim=config.embedding_word_number,
             output_dim=config.embeding_vector_length,
             input_length=config.x_int_dim
@@ -45,7 +47,7 @@ class EmbeddedLSTM(object):
         for i in range(config.x_float_dim):
             _x = Dense(config.embeding_vector_length,
                        activation='tanh',
-                       name='dense_'+str(i) + '_0')(Reshape(target_shape=[1])(x_float[:, i]))
+                       name='dense_'+str(i) + '_0')(x_float)
             if config.dropout > 0:
                 _x = Dropout(config.dropout)(_x)
             _x = Dense(config.embeding_vector_length,
@@ -63,7 +65,7 @@ class EmbeddedLSTM(object):
         if config.dropout > 0:
             x_vec = Dropout(config.dropout)(x_vec)
 
-        x_lstm_embedded_out = LSTM(units=config.lstm_units, name='lstm-embedded')(x_float_vec)
+        x_lstm_embedded_out = LSTM(units=config.lstm_units, name='lstm-embedded')(x_vec)
 
         print(x_lstm_embedded_out.shape)
 
@@ -71,12 +73,14 @@ class EmbeddedLSTM(object):
             x_lstm_embedded_out = \
                 Dropout(config.dropout)(x_lstm_embedded_out)
 
-        # 输出
-        y = Dense(1, activation='sigmoid', name='y')(x_lstm_embedded_out)
+        x_dense = x_lstm_embedded_out
+        for i, dim in enumerate(config.dense):
+            x_dense = Dense(dim, activation='sigmoid', name='dense_'+str(i))(x_dense)
+            if config.dropout > 0:
+                x_dense = Dropout(config.dropout)(x_dense)
 
-        # x_lstm_out = LSTM(64, name='lstm')(Reshape((-1, 32+len(config.x_float_columns)))(x))
-        # if config.dropout > 0:
-        #     x_lstm_out = Dropout(config.dropout)(x_lstm_out)
+        # 输出
+        y = Dense(1, activation='sigmoid', name='y')(x_dense)
 
         self._model = Model(inputs=[x_int, x_float], outputs=[y])
 

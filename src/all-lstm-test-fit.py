@@ -9,7 +9,7 @@ from keras.optimizers import SGD
 from keras.callbacks import LearningRateScheduler
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
-from src.model.lstm import EmbeddedLSTM
+from src.model.lstm_v2 import EmbeddedLSTM
 from src.metric.gini import gini_callback
 
 np.random.seed(7)
@@ -32,17 +32,17 @@ if __name__ == '__main__':
     config = config.cast('feature.' + feature)
 
     model_name = 'model.lstm.test'
-    model_path = config.runtime.path(model_name + '.%d')
+    model_path = config.runtime.path(model_name)
     model_path_tag = model_name + '.%d.save'
     model_checkpoint_path = config.runtime.path(
         model_name + '.%d.checkpoint'
                      '.epoch-{epoch:02d}'
                      '.val_loss-{val_loss:.6f}'
-                     '.val_y_acc-{val_y_acc:.6f}'
-                     '.val_y_aux_acc-{val_y_aux_acc:.6f}')
+                     '.val_acc-{val_acc:.6f}'
+    )
 
-    model_checkpoint_best_path = config.runtime.path(model_name + '.%d.checkpoint.best')
-    model_checkpoint_best_path_tag = model_name + '.%d.checkpoint.best.save'
+    model_checkpoint_best_path = config.runtime.path(model_name + '.checkpoint.best')
+    model_checkpoint_best_path_tag = model_name + '.checkpoint.best.save'
 
     model_runtime_data_path = config.runtime.path(model_name + '.data.%d')
     model_runtime_flag_running_tag = model_name + '.runtime.flag.running'
@@ -164,7 +164,7 @@ if __name__ == '__main__':
             _x_float = _x_float[permutation]
             _y = _y[permutation]
             _id = _id[permutation]
-            with open(model_runtime_data_path % i, 'wb') as fp:
+            with open((model_runtime_data_path+'.neg') % i, 'wb') as fp:
                 pickle.dump((_x_int, _x_float, _y), fp, 1)
 
 
@@ -184,9 +184,9 @@ if __name__ == '__main__':
     embedded_lstm_config.x_float_dim = len(column_name_list_feature_type_float)
     embedded_lstm_config.dropout = 0.1
     embedded_lstm_config.embedding_word_number = embedding_word_number
-    embedded_lstm_config.embeding_vector_length = 80
+    embedded_lstm_config.embeding_vector_length = 120
     embedded_lstm_config.lstm_units = 800
-    embedded_lstm_config.dense = [400, 400, 200]
+    embedded_lstm_config.dense = [400, 200]
 
     sgd = SGD(lr=0.0, momentum=0.9, decay=0.0, nesterov=False)
 
@@ -198,7 +198,7 @@ if __name__ == '__main__':
         return lrate
     lrate = LearningRateScheduler(step_decay)
 
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, mode='min', patience=2, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_acc', min_delta=0.0001, mode='max', patience=2, verbose=1)
 
     ####################################################################################################################
     # Run !
@@ -207,10 +207,25 @@ if __name__ == '__main__':
 
     breakpoint = 0
     config.parameter.put(model_runtime_flag_running_tag, True)
+    lstm = EmbeddedLSTM()
+    lstm.config = embedded_lstm_config
+    lstm.build()
+    lstm.model.summary()
+    config.parameter.put(model_path_tag, model_path)
+
+    lstm.model.compile(
+        optimizer='adam',
+        loss={'y': 'binary_crossentropy'},
+        loss_weights={'y': 1., },
+        metrics=['accuracy']
+    )
     for i in range(0, n_estimator):
 
         if i < breakpoint:
             continue
+
+        if i > 2:
+            break
 
         print('='*120)
         print('训练估计器... {0}/{1}'.format(i, n_estimator))
@@ -219,31 +234,18 @@ if __name__ == '__main__':
             (_x, _x_float, _y) = pickle.load(fp)
 
         config.parameter.put(model_runtime_breakpoint_tag, i)
-        config.parameter.put(model_path_tag % i, model_path % i)
-
-        lstm = EmbeddedLSTM()
-        lstm.config = embedded_lstm_config
-        lstm.build()
-        lstm.model.summary()
-
-        lstm.model.compile(
-            optimizer='adam',
-            loss={'y': 'binary_crossentropy', 'y_aux': 'binary_crossentropy'},
-            loss_weights={'y': 1., 'y_aux': 0.7},
-            metrics=['accuracy']
-        )
 
         checkpoint = ModelCheckpoint(
-            model_checkpoint_path % i, save_best_only=False, verbose=1)
+            model_checkpoint_path, save_best_only=False, verbose=1)
 
         checkpoint_best = ModelCheckpoint(
-            model_checkpoint_best_path % i, save_best_only=True, monitor='val_y_acc',  mode='max', verbose=1)
+            model_checkpoint_best_path, save_best_only=True, monitor='val_acc',  mode='max', verbose=1)
 
         lstm.model.fit(
             x={'x_int': _x, 'x_float': _x_float},
-            y={'y': _y, 'y_aux': _y},
-            epochs=20, batch_size=64, shuffle=True, validation_split=0.2, verbose=1,
-            callbacks=[early_stopping, checkpoint, checkpoint_best, gini_callback()]
+            y={'y': _y},
+            epochs=200, batch_size=64, shuffle=True, validation_split=0.2, verbose=1,
+            callbacks=[checkpoint_best]
         )
 
         lstm.model.save(model_path % i)
