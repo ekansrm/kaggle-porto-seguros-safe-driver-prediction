@@ -4,7 +4,6 @@ from setup import config
 import math
 import preprocesss.utils as preprocess_utils
 
-import pickle
 from keras.optimizers import SGD
 from keras.callbacks import LearningRateScheduler
 from keras.callbacks import EarlyStopping
@@ -34,19 +33,18 @@ if __name__ == '__main__':
     model_name = 'model.lstm.test'
     model_path = config.runtime.path(model_name)
     model_path_tag = model_name + '.%d.save'
-    model_checkpoint_path = config.runtime.path(
+
+    model_checkpoint_best_path = config.runtime.path(
+        model_name + '.checkpoint.best'
+    )
+
+    model_checkpoint_better_path = config.runtime.path(
         model_name + '.checkpoint'
                      '.epoch-{epoch:02d}'
                      '.val_loss-{val_loss:.6f}'
                      '.val_acc-{val_acc:.6f}'
     )
 
-    model_checkpoint_best_path = config.runtime.path(
-        model_name + '.checkpoint.best'
-                     '.epoch-{epoch:02d}'
-                     '.val_loss-{val_loss:.6f}'
-                     '.val_acc-{val_acc:.6f}'
-    )
     model_checkpoint_best_path_tag = model_name + '.checkpoint.best.save'
 
     model_runtime_data_path = config.runtime.path(model_name + '.data.%d')
@@ -209,11 +207,19 @@ if __name__ == '__main__':
     # Run !
 
     config.parameter.put(model_runtime_flag_running_tag, True)
+
     lstm = EmbeddedLSTM()
     lstm.config = embedded_lstm_config
-    lstm.build()
+
+    if reset:
+        lstm.build()
+        config.parameter.put(model_path_tag, model_path)
+        print("构建模型成功")
+    else:
+        lstm.model = model_checkpoint_best_path
+        print("加载模型成功")
+
     lstm.model.summary()
-    config.parameter.put(model_path_tag, model_path)
 
     lstm.model.compile(
         optimizer='adam',
@@ -224,8 +230,8 @@ if __name__ == '__main__':
 
     config.parameter.put(model_runtime_breakpoint_tag, i)
 
-    checkpoint = ModelCheckpoint(
-        model_checkpoint_path, save_best_only=False, verbose=1)
+    checkpoint_better = ModelCheckpoint(
+        model_checkpoint_better_path, save_best_only=True, monitor='val_acc',  mode='max', verbose=1)
 
     checkpoint_best = ModelCheckpoint(
         model_checkpoint_best_path, save_best_only=True, monitor='val_acc',  mode='max', verbose=1)
@@ -234,7 +240,7 @@ if __name__ == '__main__':
         x={'x_int': x_int, 'x_float': x_float},
         y={'y': y},
         epochs=200, batch_size=64, shuffle=True, validation_split=0.2, verbose=1,
-        callbacks=[checkpoint_best, early_stopping]
+        callbacks=[checkpoint_better, checkpoint_best, early_stopping]
     )
 
     lstm.model.save(model_path % i)

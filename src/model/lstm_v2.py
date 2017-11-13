@@ -1,4 +1,5 @@
 from keras.models import Model
+from keras.models import load_model
 from keras.layers import Input
 from keras.layers import Dense
 from keras.layers import LSTM
@@ -87,6 +88,10 @@ class EmbeddedLSTM(object):
     @property
     def model(self) -> Model:
         return self._model
+
+    @model.setter
+    def model(self, path):
+        self._model = load_model(path)
 
     @property
     def config(self):
