@@ -111,27 +111,28 @@ def target_encode(trn_series=None,  # Revised to encode validation series
     ft_tst_series.index = tst_series.index
     return add_noise(ft_trn_series, noise_level), add_noise(ft_val_series, noise_level), add_noise(ft_tst_series,
                                                                                                    noise_level)
-#lstm
-
-feature = 'all'
-model_name = 'model.lstm.test'
-config_lstm = config.cast('feature.' + feature)
-model_predict_train_path = config_lstm.data.path(model_name + '.predict.train.csv')
-model_predict_test_path = config_lstm.data.path(model_name + '.predict.test.csv')
-lstm_train = pd.read_csv(model_predict_train_path)  # .iloc[0:200,:]
-lstm_test = pd.read_csv(model_predict_test_path)  # .iloc[0:200,:]
-lstm_train['lstm'] = lstm_train['target']
-lstm_test['lstm'] = lstm_test['target']
-lstm_train.drop(['target'], axis=1, inplace=True)
-lstm_test.drop(['target'], axis=1, inplace=True)
-
-
 # Read data
 train_df = pd.read_csv(data_train_path, na_values="-1")  # .iloc[0:200,:]
 test_df = pd.read_csv(data_test_path, na_values="-1")
 
-train_df = pd.merge(train_df, lstm_train, on='id', how='inner')
-test_df = pd.merge(test_df, lstm_test, on='id', how='inner')
+#lstm
+lstm_col = []
+for i in range(0, 4):
+    feature = 'all'
+    model_name = 'model.lstm'
+    config_lstm = config.cast('feature.' + feature)
+    model_predict_train_path = config_lstm.data.path(model_name + '.predict.train.%d.csv' % i)
+    model_predict_test_path = config_lstm.data.path(model_name + '.predict.test.%d.csv' % i)
+    lstm_train = pd.read_csv(model_predict_train_path)  # .iloc[0:200,:]
+    lstm_test = pd.read_csv(model_predict_test_path)  # .iloc[0:200,:]
+    col = 'lstm{0}'.format(i)
+    lstm_train[col] = lstm_train['target']
+    lstm_test[col] = lstm_test['target']
+    lstm_train.drop(['target'], axis=1, inplace=True)
+    lstm_test.drop(['target'], axis=1, inplace=True)
+    train_df = pd.merge(train_df, lstm_train, on='id', how='inner')
+    test_df = pd.merge(test_df, lstm_test, on='id', how='inner')
+    lstm_col.append(col)
 
 
 # from olivier
@@ -170,9 +171,12 @@ train_features = [
     "ps_ind_18_bin",  # :   77.42 / shadow   25.97
     "ps_ind_12_bin",  # :   39.67 / shadow   15.52
     "ps_ind_14",  # :   37.37 / shadow   16.65
-    "lstm",
-
 ]
+
+train_features.extend(lstm_col)
+
+print(train_features)
+
 # add combinations
 combs = [
     ('ps_reg_01', 'ps_car_02_cat'),
@@ -203,20 +207,22 @@ for n_c, (f1, f2) in enumerate(combs):
 X = train_df[train_features]
 test_df = test_df[train_features]
 
+print(X.head(5))
+
 f_cats = [f for f in X.columns if "_cat" in f]
 
 y_valid_pred = 0 * y
 y_test_pred = 0
 
 # Set up folds
-K = 5
+K = 10
 kf = KFold(n_splits=K, random_state=1, shuffle=True)
 np.random.seed(0)
 
 # Set up classifier
 model = XGBClassifier(
     n_estimators=MAX_ROUNDS,
-    max_depth=4,
+    max_depth=6,
     objective="binary:logistic",
     learning_rate=LEARNING_RATE,
     subsample=.8,

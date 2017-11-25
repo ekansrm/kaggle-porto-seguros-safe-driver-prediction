@@ -9,11 +9,11 @@ from keras.optimizers import SGD
 from keras.callbacks import LearningRateScheduler
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
-from src.model.lstm import EmbeddedLSTM
+from src.model.lstm_v2 import EmbeddedLSTM
 
 np.random.seed(7)
 
-reset = True
+reset = False
 
 if __name__ == '__main__':
 
@@ -33,12 +33,12 @@ if __name__ == '__main__':
     model_name = 'model.lstm'
     model_path = config.runtime.path(model_name + '.%d')
     model_path_tag = model_name + '.%d.save'
-    model_checkpoint_path = config.runtime.path(
+    model_checkpoint_better_path = config.runtime.path(
         model_name + '.%d.checkpoint'
                      '.epoch-{epoch:02d}'
                      '.val_loss-{val_loss:.6f}'
-                     '.val_y_acc-{val_y_acc:.6f}'
-                     '.val_y_aux_acc-{val_y_aux_acc:.6f}')
+                     '.val_acc-{val_acc:.6f}'
+    )
 
     model_checkpoint_best_path = config.runtime.path(model_name + '.%d.checkpoint.best')
     model_checkpoint_best_path_tag = model_name + '.%d.checkpoint.best.save'
@@ -183,8 +183,8 @@ if __name__ == '__main__':
     embedded_lstm_config.dropout = 0.1
     embedded_lstm_config.embedding_word_number = embedding_word_number
     embedded_lstm_config.embeding_vector_length = 80
-    embedded_lstm_config.lstm_units = 800
-    embedded_lstm_config.dense = [400, 400, 200]
+    embedded_lstm_config.lstm_units = 200
+    embedded_lstm_config.dense = [200]
 
     sgd = SGD(lr=0.0, momentum=0.9, decay=0.0, nesterov=False)
 
@@ -203,7 +203,6 @@ if __name__ == '__main__':
     if flag_running:
         print('断点继续, step={0}'.format(breakpoint))
 
-    breakpoint = 0
     config.parameter.put(model_runtime_flag_running_tag, True)
     for i in range(0, n_estimator):
 
@@ -222,26 +221,29 @@ if __name__ == '__main__':
         lstm = EmbeddedLSTM()
         lstm.config = embedded_lstm_config
         lstm.build()
+
         lstm.model.summary()
 
         lstm.model.compile(
             optimizer='adam',
-            loss={'y': 'binary_crossentropy', 'y_aux': 'binary_crossentropy'},
-            loss_weights={'y': 1., 'y_aux': 0.7},
+            loss={'y': 'binary_crossentropy'},
+            loss_weights={'y': 1., },
             metrics=['accuracy']
         )
 
-        checkpoint = ModelCheckpoint(
-            model_checkpoint_path % i, save_best_only=False, verbose=1)
+        config.parameter.put(model_runtime_breakpoint_tag, i)
+
+        checkpoint_better = ModelCheckpoint(
+            model_checkpoint_better_path % i, save_best_only=True, monitor='val_acc',  mode='max', verbose=1)
 
         checkpoint_best = ModelCheckpoint(
-            model_checkpoint_best_path % i, save_best_only=True, monitor='val_y_acc',  mode='max', verbose=1)
+            model_checkpoint_best_path % i, save_best_only=True, monitor='val_acc',  mode='max', verbose=1)
 
         lstm.model.fit(
             x={'x_int': _x, 'x_float': _x_float},
-            y={'y': _y, 'y_aux': _y},
-            epochs=20, batch_size=64, shuffle=True, validation_split=0.2, verbose=1,
-            callbacks=[early_stopping, checkpoint, checkpoint_best]
+            y={'y': _y},
+            epochs=200, batch_size=64, shuffle=True, validation_split=0.2, verbose=1,
+            callbacks=[checkpoint_better, checkpoint_best, early_stopping]
         )
 
         lstm.model.save(model_path % i)
